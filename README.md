@@ -1,4 +1,4 @@
-#BarkAlert
+# BarkAlert
 
 Service for monitoring audio, and alerts if noise level is too high.
 
