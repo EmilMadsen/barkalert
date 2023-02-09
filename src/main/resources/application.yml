@@ -1,0 +1,8 @@
+ffmpeg.path: todo
+
+---
+spring:
+  profiles:
+    active: dev
+
+ffmpeg.path: "C:/ProgramData/chocolatey/bin/ffmpeg.exe"
