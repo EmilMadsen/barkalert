@@ -1,59 +1,70 @@
 package dk.emilmadsen.barkalert.service;
 
+import dk.emilmadsen.barkalert.record.Recording;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import javax.sound.sampled.*;
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class RecordingService {
 
-    // path of the wav file
-    File wavFile = new File("recording.wav");
+    private static final int RECORD_DURATON = 20000;
 
-    TargetDataLine line;
+    @Value("${file.path}")
+    private String filePath;
 
-    public void start() throws IOException {
+    private final FFmpegService fFmpegService;
+    private final DiscordService discordService;
+
+
+    @Scheduled(fixedRate = RECORD_DURATON)
+    public void run() {
+
+        File wavFile = new File(buildAudioFilename(filePath));
+        Recording rec = new Recording(wavFile);
+
+        log.info("starting {}", wavFile.getName());
+        // thread that waits for a specified amount of time before stopping.
+        Thread thread = new Thread(() -> {
+            sleep(RECORD_DURATON);
+
+            log.info("thread done {}", wavFile.getName());
+            rec.finish();
+
+            File pngFile = fFmpegService.convert(wavFile);
+            log.info("convert done {}", wavFile.getName());
+
+            discordService.sendFileRequest(wavFile, pngFile, "Recorded!");
+
+        });
+        thread.start();
+        rec.start();
+
+        log.info("started {}", wavFile.getName());
+
+    }
+
+    private void sleep(int duration) {
         try {
-            AudioFormat format = getAudioFormat();
-            DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
-
-            if (!AudioSystem.isLineSupported(info)) {
-                log.error("line not supported");
-                throw new IllegalArgumentException("line not supported");
-            }
-
-            line = (TargetDataLine) AudioSystem.getLine(info);
-            line.open(format);
-            line.start();
-            log.info("capturing...");
-            AudioInputStream ais = new AudioInputStream(line);
-
-            log.info("recording...");
-            AudioSystem.write(ais, AudioFileFormat.Type.WAVE, wavFile);
-
-        } catch (LineUnavailableException | IOException e) {
-            log.error("recording failed: {} - msg: {}", e.getClass(), e.getMessage(), e);
+            Thread.sleep(duration);
+        } catch (InterruptedException ex) {
+            log.error("interrupted.", ex);
         }
     }
 
-    public void finish() {
-        line.stop();
-        line.close();
-        log.info("finished");
-    }
-
-
-    private AudioFormat getAudioFormat() {
-        float sampleRate = 64000;
-        int sampleSizeInBits = 16;
-        int channels = 2;
-        boolean signed = true;
-        boolean bigEndian = true;
-        return new AudioFormat(sampleRate, sampleSizeInBits, channels, signed, bigEndian);
+    private String buildAudioFilename(String root) {
+        String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        return root + time + ".wav";
     }
 
 }

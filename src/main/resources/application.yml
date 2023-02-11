@@ -1,8 +1,11 @@
 ffmpeg.path: todo
+file.path: todo
 
 ---
 spring:
-  profiles:
-    active: dev
+  config:
+    activate:
+      on-profile: dev
 
 ffmpeg.path: "C:/ProgramData/chocolatey/bin/ffmpeg.exe"
+file.path: "C:/Users/Emilo/Desktop/"

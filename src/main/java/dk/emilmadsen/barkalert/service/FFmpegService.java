@@ -1,40 +1,38 @@
 package dk.emilmadsen.barkalert.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.FFmpeg;
-import net.bramp.ffmpeg.FFmpegExecutor;
-import net.bramp.ffmpeg.builder.FFmpegBuilder;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class FFmpegService {
 
     private final FFmpeg ffmpeg;
 
-    public File convert(File audioFile) throws IOException {
+    public File convert(File audioFile) {
 
         String outputName = getOutputName(audioFile.getAbsolutePath());
 
         // ffmpeg -i input -filter_complex "showwavespic=s=640x120" -frames:v 1 output.png
-        List<String> args = new ArrayList<>();
-        // input
-        args.add("-i");
-        args.add(audioFile.getAbsolutePath());
-        // filter
-        args.add("-filter_complex");
-        args.add("showwavespic=s=1280x240");
-        // frames
-        args.add("-frames:v");
-        args.add("1");
-        // output
-        args.add(outputName);
-        ffmpeg.run(args);
+        // https://trac.ffmpeg.org/wiki/Waveform
+        List<String> args = List.of(
+                "-i", audioFile.getAbsolutePath(),              // input
+                "-filter_complex", "showwavespic=s=1280x240",   // filter
+                "-frames:v", "1",                               // frames
+                outputName);                                    // output
+
+        try {
+            ffmpeg.run(args);
+        } catch (IOException e) {
+            log.error("ffmpeg failed: {}", e.getMessage(), e);
+        }
 
         return new File(outputName);
 
